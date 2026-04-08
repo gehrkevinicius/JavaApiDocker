@@ -1,0 +1,15 @@
+FROM eclipse-temurin:21-jdk AS builder
+
+WORKDIR /app
+
+COPY gradlew .
+COPY gradle gradle
+COPY build.gradle* .
+COPY settings.gradle* .
+
+RUN sed -i 's/\r$//' gradlew && chmod +x gradlew
+
+COPY src src
+
+# Não falha o build — deixa o container de pé para inspeção
+RUN ./gradlew clean build -x test --no-daemon --stacktrace; echo "EXIT:$?"

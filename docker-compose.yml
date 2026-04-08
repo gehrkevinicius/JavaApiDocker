@@ -1,0 +1,38 @@
+services:
+
+  cliente-api:
+    build:
+      context: .          # pasta raiz do projeto (onde está o Dockerfile)
+      dockerfile: Dockerfile
+    container_name: cliente-api
+    ports:
+      - "8080:8080"       # acesse em http://localhost:8080
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/clientes"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s   # dá tempo pro Spring Boot subir
+
+# ─────────────────────────────────────────────────────────────────────────────
+# OPCIONAL: descomente o bloco abaixo se quiser persistir dados num banco
+#           (ex.: PostgreSQL) em vez de manter tudo em memória.
+# ─────────────────────────────────────────────────────────────────────────────
+#
+#   postgres:
+#     image: postgres:16-alpine
+#     container_name: cliente-db
+#     environment:
+#       POSTGRES_DB: clientedb
+#       POSTGRES_USER: cliente
+#       POSTGRES_PASSWORD: cliente123
+#     ports:
+#       - "5432:5432"
+#     volumes:
+#       - pgdata:/var/lib/postgresql/data
+#
+#   volumes:
+#     pgdata:
