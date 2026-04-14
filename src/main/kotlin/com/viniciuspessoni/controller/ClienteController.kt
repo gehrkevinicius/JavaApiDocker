@@ -1,96 +1,92 @@
 package com.viniciuspessoni.controller
 
 import com.viniciuspessoni.domain.Cliente
-import org.springframework.http.HttpStatus.OK
-import org.springframework.http.HttpStatus.NOT_FOUND
+import com.viniciuspessoni.repository.ClienteRepository
 import org.springframework.http.HttpStatus.CREATED
+import org.springframework.http.HttpStatus.NOT_FOUND
+import org.springframework.http.HttpStatus.OK
 import org.springframework.http.ResponseEntity
 import org.springframework.http.ResponseEntity.status
-import org.springframework.web.bind.annotation.RestController
-import org.springframework.web.bind.annotation.PathVariable
+import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.PutMapping
-import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.RequestBody
+import org.springframework.web.bind.annotation.RestController
 import javax.validation.Valid
-import kotlin.collections.HashMap
-import kotlin.random.Random
 
 @RestController
-class ClienteController(){
-
-    var listaClientes: MutableMap<Int, Cliente> = HashMap()
+class ClienteController(private val clienteRepository: ClienteRepository) {
 
     @GetMapping("clientes", "/")
-    fun getTodosClientes(): ResponseEntity<MutableMap<Int, Cliente>> {
+    fun getTodosClientes(): ResponseEntity<Map<Int, Cliente>> {
         System.out.println("PEGA TODOS CLIENTES")
-        return status(OK).body(listaClientes)
+        val mapa = clienteRepository.findAll().associateBy { it.id }
+        return status(OK).body(mapa)
     }
 
     @GetMapping("cliente/{id}")
     fun getClientePorId(@PathVariable @Valid id: Int): ResponseEntity<Any> {
-        if(listaClientes.containsKey(id)) {
-            System.out.println("PEGA CLIENTE COM ID: " + listaClientes[id])
-            return status(OK).body(listaClientes[id])
-        }
-        else {
-            System.out.println("CLIENTE NÃO ENCONTRADO: $id")
-            return status(NOT_FOUND).body("Cliente não encontrado")
-        }
+        return clienteRepository.findById(id)
+            .map { cliente ->
+                System.out.println("PEGA CLIENTE COM ID: $cliente")
+                status(OK).body(cliente as Any)
+            }
+            .orElseGet {
+                System.out.println("CLIENTE NÃO ENCONTRADO: $id")
+                status(NOT_FOUND).body("Cliente não encontrado" as Any)
+            }
     }
 
     @GetMapping("risco/{id}")
     fun getRiscoPorId(@PathVariable @Valid id: Int): ResponseEntity<Any> {
-        if(listaClientes.containsKey(id)) {
-            val cliente = listaClientes[id]
-            cliente!!.calcularRisco()
-            System.out.println("PEGA RISCO DO CLIENTE PELO ID: $cliente")
-            return status(OK).body(cliente)
-        }
-        else {
-            System.out.println("CLIENTE NÃO ENCONTRADO: $id")
-            return status(NOT_FOUND).body("Cliente não encontrado")
-        }
+        return clienteRepository.findById(id)
+            .map { cliente ->
+                cliente.calcularRisco()
+                val salvo = clienteRepository.save(cliente)
+                System.out.println("PEGA RISCO DO CLIENTE PELO ID: $salvo")
+                status(OK).body(salvo as Any)
+            }
+            .orElseGet {
+                System.out.println("CLIENTE NÃO ENCONTRADO: $id")
+                status(NOT_FOUND).body("Cliente não encontrado" as Any)
+            }
     }
 
-    @PostMapping (path = ["/cliente"], consumes = ["application/json"])
-    fun cadastraCliente(@RequestBody @Valid cliente: Cliente): ResponseEntity<MutableMap<Int, Cliente>> {
-
-        if(cliente.id == 0){
-            cliente.id =  Random.nextInt(0, 9876543)
-        }
-        listaClientes.put(cliente.id, cliente)
-        System.out.println("CLIENTE ADD: $cliente")
-        return status(CREATED).body(listaClientes)
+    @PostMapping(path = ["/cliente"], consumes = ["application/json"])
+    fun cadastraCliente(@RequestBody @Valid cliente: Cliente): ResponseEntity<Map<Int, Cliente>> {
+        val novo = Cliente(nome = cliente.nome, idade = cliente.idade, id = 0, risco = cliente.risco)
+        val salvo = clienteRepository.save(novo)
+        System.out.println("CLIENTE ADD: $salvo")
+        val mapa = clienteRepository.findAll().associateBy { it.id }
+        return status(CREATED).body(mapa)
     }
 
-    @PutMapping (path = ["cliente"], consumes = ["application/json"])
+    @PutMapping(path = ["cliente"], consumes = ["application/json"])
     fun atualizaCliente(@RequestBody cliente: Cliente): ResponseEntity<Any> {
-        if(listaClientes.containsKey(cliente.id)) {
-            listaClientes.put(cliente.id, cliente)
-
-            System.out.println("CLIENTE ATUALIZADO: $cliente")
-            return status(OK).body(listaClientes)
-        }
-        else {
+        if (!clienteRepository.existsById(cliente.id)) {
             System.out.println("CLIENTE NÃO ENCONTRADO: $cliente")
             return status(NOT_FOUND).body("Cliente não encontrado")
         }
+        clienteRepository.save(cliente)
+        System.out.println("CLIENTE ATUALIZADO: $cliente")
+        val mapa = clienteRepository.findAll().associateBy { it.id }
+        return status(OK).body(mapa)
     }
 
     @DeleteMapping("cliente/{id}")
     fun deletaCliente(@PathVariable @Valid id: Int): ResponseEntity<String> {
-        if(listaClientes.containsKey(id)) {
-            var clienteParaRemover = listaClientes[id]
-            System.out.println("CLIENTE REMOVIDO: $clienteParaRemover")
-            listaClientes.remove(id)
-            return status(OK).body("CLIENTE REMOVIDO: $clienteParaRemover")
-        }
-        else {
-            System.out.println("CLIENTE NÃO ENCONTRADO: $id")
-            return status(NOT_FOUND).body("Cliente não encontrado")
-        }
+        return clienteRepository.findById(id)
+            .map { cliente ->
+                clienteRepository.deleteById(id)
+                System.out.println("CLIENTE REMOVIDO: $cliente")
+                status(OK).body("CLIENTE REMOVIDO: $cliente")
+            }
+            .orElseGet {
+                System.out.println("CLIENTE NÃO ENCONTRADO: $id")
+                status(NOT_FOUND).body("Cliente não encontrado")
+            }
     }
 
     /**
@@ -99,8 +95,8 @@ class ClienteController(){
      */
     @DeleteMapping("cliente/apagaTodos")
     fun deletaTodosClientes(): String {
-        listaClientes.clear()
+        clienteRepository.deleteAll()
         System.out.println("TODOS CLIENTES REMOVIDOS")
-        return listaClientes.toString()
+        return clienteRepository.findAll().toString()
     }
 }
