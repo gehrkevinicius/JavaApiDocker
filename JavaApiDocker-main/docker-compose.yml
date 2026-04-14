@@ -1,0 +1,51 @@
+services:
+
+  cliente-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cliente-api
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - minha-rede
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/clientes"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+
+  mysql:
+    image: mysql:8.0
+    container_name: mysql_db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: meu_banco
+      MYSQL_USER: meu_usuario
+      MYSQL_PASSWORD: minha_senha
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - minha-rede
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+
+volumes:
+  mysql_data:
+
+networks:
+  minha-rede:
