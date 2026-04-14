@@ -1,13 +1,3 @@
-# API Cliente (exemplo)
-
-API REST de exemplo em **Kotlin** e **Spring Boot** com CRUD de clientes. Em desenvolvimento local usa **H2** em memória; no **deploy com Docker** usa **MySQL 8**.
-
-Este repositório atende entregas que exigem **README com instruções de deploy do ambiente** e **consumo da API**. Substitua abaixo o link pelo seu repositório no GitHub ao enviar a atividade:
-
-**Repositório (GitHub):** `https://github.com/SEU-USUARIO/SEU-REPO`
-
----
-
 ## 1. Deploy do ambiente
 
 “Deploy” aqui significa colocar API + banco rodando de forma reproduzível. A forma recomendada é **Docker Compose** (um comando sobe tudo).
