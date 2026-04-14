@@ -1,71 +1,127 @@
-API Exemplo Cliente
+# API Cliente (exemplo)
 
-Essa é um exemplo de uma API (microserviço) para estudo tanto de programação quanto testes automatizados.
+API REST de exemplo para estudo de **Kotlin**, **Spring Boot** e **testes automatizados**. Expõe CRUD de clientes em memória (desenvolvimento local) ou em **MySQL** quando rodando com Docker.
 
-Usei Kotlin e Springboot para programar essa API.
+## Stack
 
-### Requisitos
+| Tecnologia | Uso |
+|------------|-----|
+| Kotlin 1.3.x | Linguagem |
+| Spring Boot 2.2.x | Web, JPA, Security |
+| H2 | Banco em memória (perfil padrão) |
+| MySQL 8 | Banco com Docker (`spring.profiles.active=docker`) |
+| Springfox | Documentação Swagger (UI) |
+| Gradle | Build |
 
-Baixe e instale o [INTELIJ](https://www.jetbrains.com/idea/)
+## Requisitos
 
-Baixe e instale a JDK mais recente [JDK](https://www.oracle.com/technetwork/java/javase/downloads/jdk8-downloads-2133151.html)
+- **JDK 11** (recomendado para alinhar com o `Dockerfile` e o Gradle do projeto)
+- Opcional: **Docker** e **Docker Compose** para subir API + MySQL
 
-### Como rodar esse projeto
+## Como rodar localmente (sem Docker)
 
-Clone ou baixe o projeto.
+Na raiz do projeto:
 
-Navegue até a pasta com.viniciuspessoni e abra a classe Aplicacao.kt.
+**Windows (PowerShell ou CMD):**
 
-Um botão verde (um play) deve aparecer ao lado na linha 9, basta apertar ele.
+```bat
+gradlew.bat clean build
+gradlew.bat bootRun
+```
 
-A aplicação será iniciada e um servidor estará rodando e acessivel no endereço:
+**Linux / macOS:**
 
-        localhost:8080
+```bash
+./gradlew clean build
+./gradlew bootRun
+```
 
+A API sobe em **http://localhost:8080** usando **H2** em memória (`application.yml`).
 
-Caso não queira usar o IntelliJ para executar o projeto, você pode fazer isso a partir do terminal.
-Abra um terminal, navegue até a pasta raiz do projeto e execute os comandos para Linux ou MacOs:
+**IntelliJ:** abra o projeto, localize `com.viniciuspessoni.Aplicacao.kt` e execute a função `main`.
 
+## Como rodar com Docker Compose
 
-    ./gradlew clean build
-    ./gradlew bootRun
+Sobe a API e o MySQL na mesma rede; a API usa o perfil `docker` (`application-docker.yml`).
 
-No Windows devemos executar os mesmos comandos, mas sem o ./ antes.
+```bash
+docker compose up --build
+```
 
-     gradlew clean build
-     gradlew bootRun
+- API: **http://localhost:8080**
+- MySQL exposto no host na porta **3307** (container continua na 3306 internamente)
 
+O healthcheck da API consulta `GET /clientes`. Para parar: `docker compose down` (o volume `mysql_data` mantém os dados entre execuções).
 
-O primeiro comando irá construir a aplicação e o segundo irá rodar ela no terminal em que você está e será possivel ver os logs das API.           
+## Documentação Swagger
 
-Caso não queira clonar e rodar a API do seu próprio computador, você pode usar a versão que está rodando no HEROKU por aqui https://tester-global-cliente-api.herokuapp.com/
+Com a aplicação no ar, abra no navegador:
 
-### A API
+**http://localhost:8080/swagger-ui.html**
 
-A API possui os endpoints:
+## Endpoints principais
 
-    / ou /clientes --> GET clientes: para pegar todos os clientes.
-    /cliente/{ID}  --> GET cliente por ID: para pegar um cliente com base no seu id.
-    /cliente       --> POST cliente para cadastrar um cliente novo.
-    /cliente       --> PUT atualiza cliente já cadastrado previamente.
-    /cliente/{ID}  --> DELETE cliente por ID para deletar um cliente por ID.
-    /risco/{id}    --> GET cliente por ID com o risco (Basic Authentication)
+| Método | Caminho | Descrição |
+|--------|---------|-----------|
+| `GET` | `/` ou `/clientes` | Lista todos os clientes (mapa `id` → cliente) |
+| `GET` | `/cliente/{id}` | Busca cliente por ID |
+| `GET` | `/risco/{id}` | Calcula e persiste o risco do cliente (**requer Basic Auth**) |
+| `POST` | `/cliente` | Cadastra cliente (corpo JSON) |
+| `PUT` | `/cliente` | Atualiza cliente existente |
+| `DELETE` | `/cliente/{id}` | Remove por ID |
+| `DELETE` | `/cliente/apagaTodos` | Remove todos (útil para testes) |
 
-        ** OBS: o endpoint RISCO é autenticado com o tipo de autenticação básica (usuário e senha)
+### Autenticação (endpoint `/risco/**`)
 
-Exemplo:
+Apenas `GET /risco/**` exige **HTTP Basic**:
 
-    http://localhost:8080/
-        OU
-    http://localhost:8080/clientes
-    deve te mostrar a lista de clientes cadastrados
+- **Usuário:** `aluno`
+- **Senha:** `senha`
 
-Para cadastrar um cliente, vá no POSTMAN e crie um método POST.           
-O corpo do método POST é um JSON e deve conter:
+Os demais endpoints ficam públicos (CSRF desabilitado na configuração de segurança).
 
-            {
-                "nome": "Vinny",
-                "idade": 30,
-                 "id": "123456789"
-            }
+### Exemplos de corpo (JSON)
 
+**POST** `/cliente` — o ID é gerado pelo banco; envie nome e idade (e opcionalmente `risco`, padrão `0`):
+
+```json
+{
+  "nome": "Vinny",
+  "idade": 30
+}
+```
+
+**PUT** `/cliente` — inclua o `id` do registro a atualizar:
+
+```json
+{
+  "id": 1,
+  "nome": "Vinny",
+  "idade": 31,
+  "risco": 0
+}
+```
+
+A regra de risco no domínio é: `risco = 110 - idade * 5` (calculada ao acessar `GET /risco/{id}`).
+
+## Testes
+
+```bash
+./gradlew test
+```
+
+No Windows: `gradlew.bat test`.
+
+## Estrutura útil do projeto
+
+- `src/main/kotlin/com/viniciuspessoni/Aplicacao.kt` — ponto de entrada Spring Boot
+- `src/main/kotlin/com/viniciuspessoni/controller/ClienteController.kt` — REST
+- `src/main/resources/application.yml` — H2 (local)
+- `src/main/resources/application-docker.yml` — MySQL (Docker)
+- `docker-compose.yml` — serviços `cliente-api` e `mysql`
+- `Dockerfile` — build multi-stage (JAR com Java 11)
+- `Dockerfile.debug` — imagem auxiliar para depuração de build
+
+## Licença / uso
+
+Projeto de exemplo para aprendizado; adapte conforme sua necessidade.
