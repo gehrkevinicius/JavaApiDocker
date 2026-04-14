@@ -1,28 +1,60 @@
 # API Cliente (exemplo)
 
-API REST de exemplo para estudo de **Kotlin**, **Spring Boot** e **testes automatizados**. Expõe CRUD de clientes em memória (desenvolvimento local) ou em **MySQL** quando rodando com Docker.
+API REST de exemplo em **Kotlin** e **Spring Boot** com CRUD de clientes. Em desenvolvimento local usa **H2** em memória; no **deploy com Docker** usa **MySQL 8**.
 
-## Stack
+Este repositório atende entregas que exigem **README com instruções de deploy do ambiente** e **consumo da API**. Substitua abaixo o link pelo seu repositório no GitHub ao enviar a atividade:
 
-| Tecnologia | Uso |
-|------------|-----|
-| Kotlin 1.3.x | Linguagem |
-| Spring Boot 2.2.x | Web, JPA, Security |
-| H2 | Banco em memória (perfil padrão) |
-| MySQL 8 | Banco com Docker (`spring.profiles.active=docker`) |
-| Springfox | Documentação Swagger (UI) |
-| Gradle | Build |
+**Repositório (GitHub):** `https://github.com/SEU-USUARIO/SEU-REPO`
 
-## Requisitos
+---
 
-- **JDK 11** (recomendado para alinhar com o `Dockerfile` e o Gradle do projeto)
-- Opcional: **Docker** e **Docker Compose** para subir API + MySQL
+## 1. Deploy do ambiente
 
-## Como rodar localmente (sem Docker)
+“Deploy” aqui significa colocar API + banco rodando de forma reproduzível. A forma recomendada é **Docker Compose** (um comando sobe tudo).
 
-Na raiz do projeto:
+### 1.1 Pré-requisitos
 
-**Windows (PowerShell ou CMD):**
+| Cenário | O que instalar |
+|---------|----------------|
+| **Deploy com Docker (recomendado)** | [Docker Desktop](https://www.docker.com/products/docker-desktop/) (inclui Docker Compose) |
+| **Só na máquina, sem container** | **JDK 11** |
+
+### 1.2 Deploy com Docker Compose (API + MySQL)
+
+Na **raiz do projeto** (onde está o `docker-compose.yml`):
+
+```bash
+docker compose up --build
+```
+
+- Aguarde o MySQL ficar *healthy* e a API subir (o `depends_on` com `condition: service_healthy` garante a ordem).
+- **URL base da API:** `http://localhost:8080`
+- MySQL no **host** na porta **3307** (usuário/senha/banco estão no `docker-compose.yml` e em `application-docker.yml`).
+
+**Encerrar os containers** (dados do MySQL persistem no volume `mysql_data`):
+
+```bash
+docker compose down
+```
+
+**Remover também o volume** (apagar dados do banco):
+
+```bash
+docker compose down -v
+```
+
+### 1.3 Verificar se o ambiente subiu
+
+No navegador ou no terminal:
+
+- `http://localhost:8080/clientes` — deve responder com JSON (mapa de clientes, possivelmente vazio `{}`).
+- Ou Swagger: `http://localhost:8080/swagger-ui.html`
+
+### 1.4 Alternativa: rodar sem Docker (apenas para desenvolvimento)
+
+Usa **H2** em memória (dados somem ao desligar a aplicação).
+
+**Windows:**
 
 ```bat
 gradlew.bat clean build
@@ -36,92 +68,138 @@ gradlew.bat bootRun
 ./gradlew bootRun
 ```
 
-A API sobe em **http://localhost:8080** usando **H2** em memória (`application.yml`).
+Também é possível executar a função `main` em `com.viniciuspessoni.Aplicacao.kt` pelo IntelliJ.
 
-**IntelliJ:** abra o projeto, localize `com.viniciuspessoni.Aplicacao.kt` e execute a função `main`.
+---
 
-## Como rodar com Docker Compose
+## 2. Consumo da API
 
-Sobe a API e o MySQL na mesma rede; a API usa o perfil `docker` (`application-docker.yml`).
+Use sempre a **URL base** do ambiente que você subiu (local: `http://localhost:8080`).
 
-```bash
-docker compose up --build
-```
-
-- API: **http://localhost:8080**
-- MySQL exposto no host na porta **3307** (container continua na 3306 internamente)
-
-O healthcheck da API consulta `GET /clientes`. Para parar: `docker compose down` (o volume `mysql_data` mantém os dados entre execuções).
-
-## Documentação Swagger
-
-Com a aplicação no ar, abra no navegador:
-
-**http://localhost:8080/swagger-ui.html**
-
-## Endpoints principais
+### 2.1 Visão geral dos endpoints
 
 | Método | Caminho | Descrição |
 |--------|---------|-----------|
-| `GET` | `/` ou `/clientes` | Lista todos os clientes (mapa `id` → cliente) |
-| `GET` | `/cliente/{id}` | Busca cliente por ID |
-| `GET` | `/risco/{id}` | Calcula e persiste o risco do cliente (**requer Basic Auth**) |
-| `POST` | `/cliente` | Cadastra cliente (corpo JSON) |
-| `PUT` | `/cliente` | Atualiza cliente existente |
+| `GET` | `/` ou `/clientes` | Lista todos os clientes |
+| `GET` | `/cliente/{id}` | Busca um cliente pelo ID |
+| `GET` | `/risco/{id}` | Calcula e grava o risco do cliente (**HTTP Basic obrigatório**) |
+| `POST` | `/cliente` | Cadastra cliente (JSON) |
+| `PUT` | `/cliente` | Atualiza cliente existente (JSON com `id`) |
 | `DELETE` | `/cliente/{id}` | Remove por ID |
-| `DELETE` | `/cliente/apagaTodos` | Remove todos (útil para testes) |
+| `DELETE` | `/cliente/apagaTodos` | Remove todos os registros (útil em testes) |
 
-### Autenticação (endpoint `/risco/**`)
+**Autenticação (somente `/risco/**`):**
 
-Apenas `GET /risco/**` exige **HTTP Basic**:
+- Usuário: `aluno`
+- Senha: `senha`
 
-- **Usuário:** `aluno`
-- **Senha:** `senha`
+### 2.2 Exemplos com `curl`
 
-Os demais endpoints ficam públicos (CSRF desabilitado na configuração de segurança).
+Use `http://localhost:8080` como base (ou a URL do servidor onde fez o deploy). No Windows, se `curl` for alias do PowerShell, chame `curl.exe` ou use Postman (seção 2.3).
 
-### Exemplos de corpo (JSON)
+**Listar todos**
 
-**POST** `/cliente` — o ID é gerado pelo banco; envie nome e idade (e opcionalmente `risco`, padrão `0`):
+```bash
+curl -s http://localhost:8080/clientes
+```
+
+**Buscar por ID** (troque `1` pelo ID retornado no cadastro)
+
+```bash
+curl -s http://localhost:8080/cliente/1
+```
+
+**Cadastrar** (`POST`, `Content-Type: application/json`) — um comando por linha:
+
+```bash
+curl -s -X POST http://localhost:8080/cliente -H "Content-Type: application/json" -d "{\"nome\":\"Maria\",\"idade\":25}"
+```
+
+**Atualizar** (`PUT` — inclua o `id` existente)
+
+```bash
+curl -s -X PUT http://localhost:8080/cliente -H "Content-Type: application/json" -d "{\"id\":1,\"nome\":\"Maria Silva\",\"idade\":26,\"risco\":0}"
+```
+
+**Risco** (Basic Auth — calcula `risco = 110 - idade * 5` e persiste)
+
+```bash
+curl -s -u aluno:senha http://localhost:8080/risco/1
+```
+
+**Remover um cliente**
+
+```bash
+curl -s -X DELETE http://localhost:8080/cliente/1
+```
+
+### 2.3 Consumo via Postman (ou Insomnia)
+
+1. Crie uma requisição `POST` para `http://localhost:8080/cliente`.
+2. Aba **Body** → **raw** → **JSON**, por exemplo: `{"nome":"Maria","idade":25}`.
+3. Para `GET http://localhost:8080/risco/1`, em **Authorization** escolha **Basic Auth** e informe `aluno` / `senha`.
+
+### 2.4 Corpos JSON de referência
+
+**POST** `/cliente` (ID gerado automaticamente; não é necessário enviar `id`):
 
 ```json
 {
-  "nome": "Vinny",
-  "idade": 30
+  "nome": "Maria",
+  "idade": 25
 }
 ```
 
-**PUT** `/cliente` — inclua o `id` do registro a atualizar:
+**PUT** `/cliente`:
 
 ```json
 {
   "id": 1,
-  "nome": "Vinny",
-  "idade": 31,
+  "nome": "Maria Silva",
+  "idade": 26,
   "risco": 0
 }
 ```
 
-A regra de risco no domínio é: `risco = 110 - idade * 5` (calculada ao acessar `GET /risco/{id}`).
+---
 
-## Testes
+## 3. Stack técnica (resumo)
+
+| Item | Detalhe |
+|------|---------|
+| Linguagem | Kotlin 1.3.x |
+| Framework | Spring Boot 2.2.x (Web, JPA, Security) |
+| Banco local | H2 (memória) |
+| Banco Docker | MySQL 8 |
+| Documentação | Springfox — `/swagger-ui.html` |
+| Build | Gradle |
+
+---
+
+## 4. Testes automatizados
 
 ```bash
 ./gradlew test
 ```
 
-No Windows: `gradlew.bat test`.
+Windows: `gradlew.bat test`.
 
-## Estrutura útil do projeto
+---
 
-- `src/main/kotlin/com/viniciuspessoni/Aplicacao.kt` — ponto de entrada Spring Boot
-- `src/main/kotlin/com/viniciuspessoni/controller/ClienteController.kt` — REST
-- `src/main/resources/application.yml` — H2 (local)
-- `src/main/resources/application-docker.yml` — MySQL (Docker)
-- `docker-compose.yml` — serviços `cliente-api` e `mysql`
-- `Dockerfile` — build multi-stage (JAR com Java 11)
-- `Dockerfile.debug` — imagem auxiliar para depuração de build
+## 5. Arquivos relevantes no repositório
 
-## Licença / uso
+| Arquivo | Função |
+|---------|--------|
+| `docker-compose.yml` | Orquestra API + MySQL |
+| `Dockerfile` | Imagem da API (build + runtime Java 11) |
+| `src/main/resources/application.yml` | Perfil padrão (H2) |
+| `src/main/resources/application-docker.yml` | Perfil `docker` (MySQL) |
+| `src/main/kotlin/.../Aplicacao.kt` | Entrada da aplicação |
+| `src/main/kotlin/.../controller/ClienteController.kt` | Endpoints REST |
+| `src/main/kotlin/.../config/ConfiguracaoSegura.kt` | Basic Auth em `/risco/**` |
+
+---
+
+## 6. Licença / uso
 
 Projeto de exemplo para aprendizado; adapte conforme sua necessidade.
